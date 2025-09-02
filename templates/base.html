@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{{ title or "Annotator" }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] } };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+</head>
+<body>
+  <nav class="topbar">
+    <a href="{{ url_for('index') }}" class="brand">📝 Annotator</a>
+    <div class="grow"></div>
+    {% if current_user.is_authenticated %}
+      <span class="muted">Hi, {{ current_user.username }}</span>
+      <form method="post" action="{{ url_for('auth.logout_submit') }}"><button class="btn">Logout</button></form>
+    {% else %}
+      <a class="btn" href="{{ url_for('auth.login_form') }}">Login</a>
+      <a class="btn" href="{{ url_for('auth.register_form') }}">Register</a>
+    {% endif %}
+  </nav>
+  <main class="container">
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% if msgs %}
+        {% for cat, msg in msgs %}
+          <div class="flash {{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>{{ (document.title if document else 'New Document') }}</h2>
+
+  <form id="edit-form" method="post"
+        action="{{ url_for('docs.create_doc') if not document else url_for('docs.save_doc', doc_id=document.id) }}"
+        class="stack">
+    <input type="text" name="title" placeholder="Title" value="{{ document.title if document else '' }}" required>
+    <textarea name="markdown" id="md" placeholder="Write Markdown + LaTeX here" rows="18">{{ version.source_md if version else '' }}</textarea>
+    <div class="row">
+      <button type="submit" class="btn primary">Save</button>
+      {% if document %}
+        <a class="btn" href="{{ url_for('docs.view_doc', doc_id=document.id) }}">Open Viewer</a>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if document %}
+  <div class="row" style="margin-top:12px; flex-wrap:wrap; gap:8px">
+    <form method="post" action="{{ url_for('docs.toggle_public', doc_id=document.id) }}">
+      <button class="btn">{{ 'Make Private' if document.is_public else 'Make Public' }}</button>
+    </form>
+
+    <form method="post" action="{{ url_for('share.grant', doc_id=document.id) }}" class="row">
+      <input name="username" placeholder="Add user by username" required>
+      <select name="role">
+        <option value="viewer">viewer</option>
+        <option value="annotator">annotator</option>
+        <option value="editor">editor</option>
+      </select>
+      <button class="btn">Share</button>
+    </form>
+
+    <button type="button" class="btn" onclick="shareLink()">Get Share Link</button>
+  </div>
+  {% endif %}
+
+  {% if version %}
+    <h3 style="margin-top:18px">Live Preview</h3>
+    <article class="doc-preview">{{ version.rendered_html | safe }}</article>
+  {% endif %}
+
+  <script>
+    async function shareLink(){
+      const res = await fetch('{{ url_for('docs.share_link', doc_id=document.id if document else 0) }}');
+      const j = await res.json();
+      navigator.clipboard.writeText(j.share_url);
+      alert('Copied link: ' + j.share_url);
+    }
+  </script>
+{% endblock %}

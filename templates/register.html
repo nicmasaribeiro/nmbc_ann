@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Create Account</h2>
+<form method="post" action="{{ url_for('auth.register_submit') }}" class="stack">
+  <input name="username" placeholder="Username" required>
+  <input name="password" type="password" placeholder="Password (min 6)" required>
+  <input name="confirm" type="password" placeholder="Confirm password" required>
+  <button class="btn primary">Register</button>
+</form>
+<p class="muted">Already have an account? <a href="{{ url_for('auth.login_form') }}">Log in</a>.</p>
+{% endblock %}

@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- Page toolbar -->
+<header class="row" style="align-items:center; gap:10px;">
+  <a class="btn" href="{{ url_for('index') }}">← Back</a>
+  <h2 class="grow" style="margin:0">{{ document.title }}</h2>
+
+  {% if can_annotate %}
+    <button class="btn primary" id="annotate-btn" disabled>Annotate selection</button>
+    <span class="pill">Annotate Enabled</span>
+  {% endif %}
+
+  <!-- Toggle highlights for easier reading -->
+  <label class="row" style="gap:6px; align-items:center;">
+    <input type="checkbox" id="toggle-highlights">
+    <span class="muted" style="font-size:12px;">Show highlights</span>
+  </label>
+</header>
+
+<!-- Tips -->
+<div class="flash" style="margin-top:10px;">
+  Tip: select any text to add an annotation. Hover a highlight to preview its note; click to open details.
+</div>
+
+<!-- Layout -->
+<div class="grid" style="margin-top:12px;">
+  <article id="doc" class="annotatable" aria-label="Document content" data-doc-id="{{ document.id }}">
+    {{ version.rendered_html | safe }}
+  </article>
+
+  <aside id="sidebar" aria-label="Annotations panel">
+    <div class="row" style="align-items:center;">
+      <h3 style="margin:0;">Annotations <span id="ann-count" class="muted" style="font-weight:400;">(0)</span></h3>
+      <div class="grow"></div>
+      {% if current_user.is_authenticated and (current_user.id == document.owner_id) %}
+        <a class="btn" href="{{ url_for('docs.edit_doc', doc_id=document.id) }}">Edit Doc</a>
+      {% endif %}
+    </div>
+
+    <!-- Sidebar controls -->
+    <div class="stack" style="margin-top:10px;">
+      <input id="ann-search" placeholder="Search annotations (text or author)">
+      <div class="row" style="gap:8px; flex-wrap:wrap;">
+        {% if current_user.is_authenticated %}
+          <label class="row" style="gap:6px; align-items:center;">
+            <input type="checkbox" id="ann-filter-mine">
+            <span class="muted" style="font-size:12px;">Mine</span>
+          </label>
+        {% endif %}
+        <div class="grow"></div>
+        <label class="row" style="gap:6px; align-items:center;">
+          <span class="muted" style="font-size:12px;">Sort</span>
+          <select id="ann-sort">
+            <option value="pos">Position</option>
+            <option value="new">Newest</option>
+            <option value="old">Oldest</option>
+          </select>
+        </label>
+        <button class="btn" id="ann-clear">Clear</button>
+      </div>
+    </div>
+
+    <!-- List -->
+    <div id="ann-empty" class="muted" style="margin-top:10px; display:none;">No annotations yet.</div>
+    <div id="ann-list" class="ann-list" style="margin-top:6px;"></div>
+  </aside>
+</div>
+
+<!-- Create popover -->
+<div id="ann-pop" class="ann-pop hidden" role="dialog" aria-modal="true" aria-label="Add annotation">
+  <textarea id="ann-text" placeholder="Add a note about this passage..." rows="4"></textarea>
+  <div class="row" style="margin-top:8px;">
+    <button class="btn primary" id="ann-save">Save</button>
+    <button class="btn" id="ann-cancel">Cancel</button>
+  </div>
+</div>
+
+<!-- Read-only viewer for existing annotations -->
+<div id="ann-view" class="ann-pop hidden" role="dialog" aria-modal="true" aria-label="Annotation details">
+  <div id="ann-view-content" style="white-space:pre-wrap; margin-bottom:8px;"></div>
+  <div class="row">
+    <button class="btn danger" id="ann-view-delete" style="display:none;">Delete</button>
+    <div class="grow"></div>
+    <button class="btn" id="ann-view-close">Close</button>
+  </div>
+</div>
+
+<!-- Page-scoped helpers -->
+<style>
+  /* Force grey highlights across the page */
+  :root { --hl: #d1d5db; } /* grey-300 */
+
+  /* Hide highlights when toggle is off */
+  #doc:not(.show-highlights) mark.ann { background: transparent !important; outline: 1px dashed var(--border); }
+  /* Brief pulse when jumping to a highlight from the list */
+  @keyframes pulse { 0%{outline-color:transparent;} 30%{outline-color:var(--accent);} 100%{outline-color:transparent;} }
+  mark.ann.pulse { outline: 2px solid var(--accent); animation: pulse 1.8s ease-out; }
+  /* Make list items clickable */
+  #ann-list .item { cursor: pointer; }
+</style>
+
+<script>
+  const DOC_ID = {{ document.id }};
+  const CAN_ANNOTATE = {{ 'true' if can_annotate else 'false' }};
+</script>
+<script src="{{ url_for('static', filename='annotate.js') }}"></script>
+
+<!-- Force-inline any new highlights to grey (overrides JS inline styles) -->
+<script>
+(function(){
+  const GREY = '#d1d5db';
+  const docEl = document.getElementById('doc');
+
+  function paintGrey() {
+    document.querySelectorAll('mark.ann').forEach(m => {
+      if (m.style.background !== GREY) {
+        m.style.background = GREY;
+        m.style.color = 'inherit';
+      }
+    });
+  }
+
+  // Initial pass (after annotate.js may have drawn preexisting marks)
+  document.addEventListener('DOMContentLoaded', paintGrey);
+
+  // Watch for any newly inserted highlights and recolor them
+  const mo = new MutationObserver(() => paintGrey());
+  if (docEl) mo.observe(docEl, { childList: true, subtree: true });
+})();
+</script>
+
+<!-- Light UX glue that doesn't interfere with annotate.js -->
+<script>
+(function(){
+  const docEl = document.getElementById('doc');
+  const listEl = document.getElementById('ann-list');
+  const emptyEl = document.getElementById('ann-empty');
+  const countEl = document.getElementById('ann-count');
+  const searchEl = document.getElementById('ann-search');
+  const mineEl = document.getElementById('ann-filter-mine');
+  const sortEl = document.getElementById('ann-sort');
+  const clearBtn = document.getElementById('ann-clear');
+  const toggleHighlights = document.getElementById('toggle-highlights');
+
+  // Default: show highlights
+  toggleHighlights.checked = true;
+  docEl.classList.add('show-highlights');
+  toggleHighlights.addEventListener('change', () => {
+    if (toggleHighlights.checked) docEl.classList.add('show-highlights');
+    else docEl.classList.remove('show-highlights');
+  });
+
+  // Update count + empty state when the list changes (annotate.js populates it)
+  const mo = new MutationObserver(updateState);
+  mo.observe(listEl, { childList: true, subtree: false });
+  function updateState(){
+    const items = [...listEl.querySelectorAll('.item')];
+    countEl.textContent = `(${items.length})`;
+    emptyEl.style.display = items.length ? 'none' : 'block';
+    applyFilters(); // reapply filters if new items came in
+  }
+
+  // Filtering & sorting client-side
+  function applyFilters(){
+    const q = (searchEl.value || '').toLowerCase().trim();
+    const mineOnly = mineEl ? mineEl.checked : false;
+    const sort = (sortEl.value || 'pos');
+
+    // Filter
+    const items = [...listEl.querySelectorAll('.item')];
+    items.forEach(el => {
+      const text = el.textContent.toLowerCase();
+      const byMe = el.innerHTML.includes('<strong>you</strong>') || /—\s*you\b/i.test(el.textContent);
+      const passQ = !q || text.includes(q);
+      const passMine = !mineOnly || byMe;
+      el.style.display = (passQ && passMine) ? '' : 'none';
+    });
+
+    // Sort (position by default relies on server insertion order; for 'new'/'old' use data-id)
+    if (sort !== 'pos') {
+      const arr = items.filter(el => el.style.display !== 'none');
+      arr.sort((a,b) => {
+        const ida = parseInt(a.dataset.id || '0', 10), idb = parseInt(b.dataset.id || '0', 10);
+        return sort === 'new' ? (idb - ida) : (ida - ida);
+      });
+      arr.forEach(el => listEl.appendChild(el));
+    }
+  }
+
+  if (searchEl) searchEl.addEventListener('input', applyFilters);
+  if (mineEl) mineEl.addEventListener('change', applyFilters);
+  if (sortEl) sortEl.addEventListener('change', applyFilters);
+  if (clearBtn) clearBtn.addEventListener('click', () => {
+    if (searchEl) searchEl.value = '';
+    if (mineEl) mineEl.checked = false;
+    if (sortEl) sortEl.value = 'pos';
+    applyFilters();
+  });
+
+  // Jump to highlight when clicking an item
+  listEl.addEventListener('click', (e) => {
+    const item = e.target.closest('.item');
+    if (!item) return;
+    const id = item.dataset.id;
+    const mark = docEl.querySelector(`mark.ann[data-id="${id}"]`);
+    if (!mark) return;
+    mark.scrollIntoView({ behavior:'smooth', block:'center', inline:'nearest' });
+    mark.classList.add('pulse');
+    setTimeout(() => mark.classList.remove('pulse'), 2000);
+  });
+
+  // Initial state in case annotate.js filled the list before this script runs
+  updateState();
+})();
+</script>
+
+{% endblock %}

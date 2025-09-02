@@ -1,0 +1,22 @@
+:root { --bg:#0b0d10; --card:#13161a; --text:#e8edf2; --muted:#9aa7b2; --border:#242a31; --accent:#7aa2f7; --hl:#ffeb3b; }
+* { box-sizing: border-box; }
+body { margin:0; font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+.container { width:min(1100px, 92%); margin: 24px auto; }
+.topbar { display:flex; gap:12px; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--card); position:sticky; top:0; }
+.brand { color:var(--text); text-decoration:none; font-weight:700; }
+.btn { background:var(--card); color:var(--text); border:1px solid var(--border); padding:8px 12px; border-radius:10px; cursor:pointer; }
+.btn.primary { background:var(--accent); color:#0b0d10; border:none; }
+.pill { background:#1d232b; color:var(--muted); padding:4px 8px; border-radius:12px; font-size:12px; border:1px solid var(--border); }
+.flash { background:#1d232b; border:1px solid var(--border); padding:8px 10px; border-radius:10px; margin-bottom:12px; }
+.stack { display:flex; flex-direction:column; gap:10px; }
+.row { display:flex; gap:10px; align-items:center; }
+.grow { flex:1; }
+.grid { display:grid; grid-template-columns: 2fr 1fr; gap:16px; }
+@media (max-width: 900px){ .grid { grid-template-columns: 1fr; } }
+input, textarea, select { background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px; width:100%; }
+.doc-preview, .annotatable { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; }
+.annotatable mark.ann { background:var(--hl); padding:2px 0; border-radius:3px; }
+#sidebar { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px; }
+.ann-list .item { padding:8px; border-bottom:1px dashed var(--border); }
+.ann-pop { position:fixed; left:50%; transform:translateX(-50%); bottom:24px; width:min(680px, 92%); background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; box-shadow:0 8px 24px rgba(0,0,0,.4); }
+.hidden { display:none; }
